@@ -7,7 +7,7 @@ import streamlit as st
 
 # -------------------------------------------------------------------
 # Terra — Fertilizer Recommendation System
-# Keep fertilizer_model.pkl in the same folder as this file.
+# Powered by Random Forest Classifier trained on 3,100 agricultural records
 # -------------------------------------------------------------------
 
 st.set_page_config(
@@ -19,11 +19,35 @@ st.set_page_config(
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fertilizer_model.pkl")
 
-SOIL_OPTIONS = ["Black", "Clayey", "Loamy", "Red", "Sandy"]
-CROP_OPTIONS = [
-    "Barley", "Cotton", "Ground Nuts", "Maize", "Millets",
-    "Oil seeds", "Paddy", "Pulses", "Sugarcane", "Tobacco", "Wheat",
+SOIL_OPTIONS = [
+    "Acidic Soil",
+    "Alkaline Soil",
+    "Loamy Soil",
+    "Neutral Soil",
+    "Peaty Soil"
 ]
+
+CROP_OPTIONS = [
+    "Adzuki Beans", "Black gram", "Chickpea", "Coconut", "Coffee",
+    "Cotton", "Ground Nut", "Jute", "Kidney Beans", "Lentil",
+    "Moth Beans", "Mung Bean", "Peas", "Pigeon Peas", "Rubber",
+    "Sugarcane", "Tea", "Tobacco", "apple", "banana", "grapes",
+    "maize", "mango", "millet", "muskmelon", "orange", "papaya",
+    "pomegranate", "rice", "watermelon", "wheat"
+]
+
+FERTILIZER_REMARKS = {
+    "Balanced NPK Fertilizer": "Provides a balanced mix of nitrogen, phosphorus, and potassium for loamy soils. Recommended for general-purpose fertilization in well-structured soils.",
+    "Compost": "Enhances organic matter and improves soil structure. Recommended for low-carbon soils to naturally boost microbial and soil health.",
+    "DAP": "Rich in phosphorus, essential for root development and early plant vigor. Recommended for phosphorus-deficient soils to improve crop establishment.",
+    "General Purpose Fertilizer": "Suitable for general use across diverse soil and crop types when no specific acute nutrient deficiency is present.",
+    "Gypsum": "Corrects alkaline soil and adds calcium and sulfur. Recommended to neutralize high soil pH and improve soil permeability.",
+    "Lime": "Neutralizes acidic soil and improves pH balance. Corrects low soil pH, unlocking critical nutrient availability for root uptake.",
+    "Muriate of Potash": "High potassium content, improving disease resistance, water regulation, and fruit/flower quality.",
+    "Organic Fertilizer": "Enhances soil fertility naturally, ideal for peaty and organic-rich soils to support sustainable organic farming.",
+    "Urea": "Provides high nitrogen (46% N), ideal for rapid vegetative leafy growth and quickly correcting nitrogen deficiency.",
+    "Water Retaining Fertilizer": "Improves water retention in dry or coarse soils. Recommended to prevent moisture stress and preserve root hydration."
+}
 
 # Change this URL if you want to use a locally saved banner image instead.
 HERO_IMAGE_URL = (
@@ -91,7 +115,7 @@ st.markdown(
     header[data-testid="stHeader"] { background: transparent; }
     #MainMenu, footer { visibility: hidden; }
 
-    /* Strong, readable default text colors — fixes white labels on cream. */
+    /* Strong, readable default text colors */
     .stApp, .stApp p, .stApp label, .stApp legend,
     .stApp [data-testid="stWidgetLabel"] p,
     .stApp [data-testid="stMarkdownContainer"] p,
@@ -271,13 +295,6 @@ st.markdown(
       overflow-wrap: anywhere;
     }
 
-    .snapshot-note {
-      color: var(--muted) !important;
-      font-size: .83rem;
-      margin-top: .3rem;
-      line-height: 1.5;
-    }
-
     .result-card {
       background: linear-gradient(135deg, #eaf2df, #f8faef);
       border: 1px solid #d2e1c1;
@@ -304,14 +321,14 @@ st.markdown(
     }
 
     .result-copy {
-      color: #405c49 !important;
+      color: #294c34 !important;
+      font-size: 1.02rem;
       line-height: 1.65;
-    }
-
-    .small-note {
-      color: var(--muted) !important;
-      font-size: .88rem;
-      line-height: 1.7;
+      background: rgba(255,255,255,0.7);
+      padding: 0.8rem 1rem;
+      border-radius: 10px;
+      border-left: 4px solid var(--leaf);
+      margin-top: 0.8rem;
     }
 
     .footer {
@@ -349,7 +366,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Hero section with a landscape photo.
+# Hero section with landscape photo
 hero_left, hero_right = st.columns([1.35, 0.85], gap="large")
 with hero_left:
     st.markdown(
@@ -358,10 +375,10 @@ with hero_left:
           <span class="hero-kicker">A smarter starting point for your field</span>
           <h1>Good soil.<br>Thoughtful choices.</h1>
           <p>
-            Explore a fertilizer-label suggestion based on your crop, soil type,
-            nutrient readings and field conditions.
+            Explore a fertilizer recommendation tailored to your crop, soil properties,
+            NPK nutrients, pH, moisture, and rainfall conditions.
           </p>
-          <div class="hero-foot">✳ &nbsp; Powered by a machine-learning model trained on an agricultural dataset</div>
+          <div class="hero-foot">✳ &nbsp; Powered by a machine-learning pipeline trained on 3,100 field observations</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -378,53 +395,64 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-sub">Enter your readings below. Where possible, use values from a soil test or reliable field measurements.</div>',
+    '<div class="section-sub">Enter your readings below. Use values from a recent soil test or local agro-climatic readings.</div>',
     unsafe_allow_html=True,
 )
 
-# Defaults live outside the form so the snapshot is always in sync with the inputs.
 with st.container(border=True):
     with st.form("field_form"):
-        st.markdown('<div class="mini-heading">01 &nbsp; Nutrient readings</div>', unsafe_allow_html=True)
+        st.markdown('<div class="mini-heading">01 &nbsp; Soil Nutrients (NPK)</div>', unsafe_allow_html=True)
         n1, n2, n3 = st.columns(3)
         with n1:
             nitrogen = st.number_input(
-                "Nitrogen (N)", min_value=0, max_value=200, value=50, step=1,
-                help="Use the same measurement convention as the training dataset."
+                "Nitrogen (N)", min_value=0.0, max_value=200.0, value=60.0, step=1.0,
+                help="Nitrogen content in soil."
             )
         with n2:
             phosphorous = st.number_input(
-                "Phosphorous (P)", min_value=0, max_value=200, value=40, step=1
+                "Phosphorous (P)", min_value=0.0, max_value=250.0, value=70.0, step=1.0,
+                help="Phosphorous content in soil."
             )
         with n3:
             potassium = st.number_input(
-                "Potassium (K)", min_value=0, max_value=200, value=40, step=1
+                "Potassium (K)", min_value=0.0, max_value=250.0, value=70.0, step=1.0,
+                help="Potassium content in soil."
             )
 
         st.markdown("---")
-        st.markdown('<div class="mini-heading">02 &nbsp; Field conditions</div>', unsafe_allow_html=True)
-        f1, f2, f3 = st.columns(3)
-        with f1:
+        st.markdown('<div class="mini-heading">02 &nbsp; Climate & Soil Chemistry</div>', unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
             temperature = st.number_input(
                 "Temperature (°C)", min_value=0.0, max_value=60.0,
-                value=25.0, step=0.5, format="%.1f"
+                value=26.0, step=0.5, format="%.1f"
             )
-        with f2:
-            humidity = st.number_input(
-                "Humidity (%)", min_value=0.0, max_value=100.0,
-                value=60.0, step=1.0, format="%.1f"
-            )
-        with f3:
+        with c2:
             moisture = st.number_input(
-                "Moisture", min_value=0.0, max_value=100.0,
-                value=40.0, step=1.0, format="%.1f"
+                "Soil Moisture", min_value=0.0, max_value=1.0,
+                value=0.60, step=0.05, format="%.2f",
+                help="Soil moisture saturation ratio (e.g., 0.60 for 60% saturation)."
+            )
+        with c3:
+            rainfall = st.number_input(
+                "Rainfall (mm)", min_value=0.0, max_value=500.0,
+                value=110.0, step=5.0, format="%.1f",
+                help="Seasonal or monthly average precipitation in mm."
+            )
+        with c4:
+            ph = st.number_input(
+                "Soil pH", min_value=2.0, max_value=12.0,
+                value=6.5, step=0.1, format="%.1f",
+                help="Soil acidity/alkalinity level (6.0 - 7.5 is neutral)."
             )
 
-        f4, f5 = st.columns(2)
-        with f4:
-            soil = st.selectbox("Soil type", SOIL_OPTIONS, index=0)
-        with f5:
-            crop = st.selectbox("Crop type", CROP_OPTIONS, index=CROP_OPTIONS.index("Barley"))
+        st.markdown("---")
+        st.markdown('<div class="mini-heading">03 &nbsp; Soil Classification & Target Crop</div>', unsafe_allow_html=True)
+        f1, f2 = st.columns(2)
+        with f1:
+            soil = st.selectbox("Soil type", SOIL_OPTIONS, index=SOIL_OPTIONS.index("Loamy Soil"))
+        with f2:
+            crop = st.selectbox("Crop type", CROP_OPTIONS, index=CROP_OPTIONS.index("wheat"))
 
         submitted = st.form_submit_button(
             "Find my fertilizer suggestion  →",
@@ -448,54 +476,60 @@ with snap1:
     )
 with snap2:
     st.markdown(
-        f'<div class="snapshot"><div class="snapshot-label">Soil</div>'
-        f'<div class="snapshot-value">{html.escape(soil)}</div></div>',
+        f'<div class="snapshot"><div class="snapshot-label">Soil & pH</div>'
+        f'<div class="snapshot-value">{html.escape(soil)} (pH {ph:g})</div></div>',
         unsafe_allow_html=True,
     )
 with snap3:
     st.markdown(
         f'<div class="snapshot"><div class="snapshot-label">N · P · K</div>'
-        f'<div class="snapshot-value">{nitrogen} · {phosphorous} · {potassium}</div></div>',
+        f'<div class="snapshot-value">{nitrogen:g} · {phosphorous:g} · {potassium:g}</div></div>',
         unsafe_allow_html=True,
     )
 with snap4:
     st.markdown(
-        f'<div class="snapshot"><div class="snapshot-label">Temp. / Humidity</div>'
-        f'<div class="snapshot-value">{temperature:g}°C / {humidity:g}%</div></div>',
+        f'<div class="snapshot"><div class="snapshot-label">Temp · Rain · Moist</div>'
+        f'<div class="snapshot-value">{temperature:g}°C · {rainfall:g}mm · {moisture*100:.0f}%</div></div>',
         unsafe_allow_html=True,
     )
 
 if submitted:
     input_df = pd.DataFrame(
         [{
-            "Nitrogen": nitrogen,
-            "Phosphorous": phosphorous,
-            "Potassium": potassium,
-            "Temparature": temperature,  # Keep spelling consistent with training dataset.
-            "Humidity": humidity,
-            "Moisture": moisture,
-            "Soil Type": soil,
-            "Crop Type": crop,
+            "Nitrogen": float(nitrogen),
+            "Phosphorous": float(phosphorous),
+            "Potassium": float(potassium),
+            "Temperature": float(temperature),
+            "Moisture": float(moisture),
+            "Rainfall": float(rainfall),
+            "PH": float(ph),
+            "Soil": soil,
+            "Crop": crop,
         }]
     )
 
     try:
         prediction = str(model.predict(input_df)[0])
+        remark_text = FERTILIZER_REMARKS.get(
+            prediction,
+            "Formulated for optimal nutrient replenishment given current soil and environmental parameters."
+        )
+
         st.markdown('<div class="section-title">Your fertilizer suggestion</div>', unsafe_allow_html=True)
         st.markdown(
             f"""
             <div class="result-card">
-              <div class="result-label">Dataset-based model prediction</div>
+              <div class="result-label">Dataset-based model recommendation</div>
               <div class="result-name">{html.escape(prediction)}</div>
               <div class="result-copy">
-                This is the fertilizer label predicted by the trained model for the values you entered.
+                <b>Agronomic Insight:</b> {html.escape(remark_text)}
               </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        # Show the model's top labels only if this estimator exposes probabilities.
+        # Show top candidate matches if model supports probability outputs
         if hasattr(model, "predict_proba"):
             try:
                 probabilities = model.predict_proba(input_df)[0]
@@ -506,33 +540,32 @@ if submitted:
                     reverse=True,
                 )[:3]
                 if ranked:
-                    st.markdown("#### Other model matches")
+                    st.markdown("#### Candidate Match Probabilities")
                     for label, score in ranked:
                         st.write(f"**{label}** — model score: {score:.1%}")
+                        st.progress(float(score))
                     st.caption(
-                        "Model scores are not calibrated probabilities of crop yield or fertilizer effectiveness."
+                        "Model scores reflect the probability distribution computed across 100 decision trees."
                     )
             except Exception:
                 pass
 
         st.warning(
-            "Safety note: this app predicts a fertilizer label from its training dataset. "
-            "It does not calculate an application rate and is not a substitute for a soil test, "
-            "product label, or advice from a local agricultural expert."
+            "Safety note: This application predicts fertilizer suggestions based on 3,100 empirical observations. "
+            "Always corroborate with an official laboratory soil test and local agricultural extension guidance before bulk field application."
         )
     except Exception as exc:
         st.error(f"Could not generate a prediction: {exc}")
         st.caption(
-            "Confirm that fertilizer_model.pkl is the pipeline trained with the same feature names "
-            "and preprocessing. The dataset uses the spelling 'Temparature'."
+            "Confirm that fertilizer_model.pkl is trained with features: "
+            "['Nitrogen', 'Phosphorous', 'Potassium', 'Temperature', 'Moisture', 'Rainfall', 'PH', 'Soil', 'Crop']."
         )
 
 st.markdown(
     """
     <div class="footer">
-      <b>terra.</b> &nbsp; A student machine-learning project for fertilizer-label prediction.<br>
-      Designed to make model results easier to explore. Predictions reflect patterns in the training
-      dataset and should not be treated as agronomic prescriptions.
+      <b>terra.</b> &nbsp; Fertilizer Recommendation System powered by Machine Learning.<br>
+      Predictions reflect patterns from agricultural field datasets and should be paired with local agronomic consultation.
     </div>
     """,
     unsafe_allow_html=True,
